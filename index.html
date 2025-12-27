@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Nginx Installed Successfully</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            text-align: center;
+            padding-top: 100px;
+        }
+        .box {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            width: 60%;
+            margin: auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #009639;
+        }
+        p {
+            color: #555;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>✅ Nginx is working!</h1>
+        <p>If you can see this page, Nginx has been installed and configured successfully.</p>
+        <p><strong>Server:</strong> <span id="hostname"></span></p>
+        <footer>
+            Powered by Nginx
+        </footer>
+    </div>
+
+    <script>
+        document.getElementById("hostname").innerText = window.location.hostname;
+    </script>
+</body>
+</html>

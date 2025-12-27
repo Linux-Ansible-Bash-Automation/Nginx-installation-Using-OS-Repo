@@ -1,0 +1,119 @@
+---
+- name: NGINX installation on RedHat and Debian families using systemd
+  hosts: '*'
+  become: true
+  become_method: "{{ play_become_method }}"
+  become_user: root
+  gather_facts: true
+
+  vars:
+    ansible_remote_tmp: /tmp
+
+  tasks:
+    - name: Install NGINX on RedHat family
+      block:
+        - name: Refresh yum metadata cache (RHEL < 8)
+          ansible.builtin.yum:
+            update_cache: true
+          when:
+            - ansible_distribution_major_version | int < 8
+            - ansible_pkg_mgr == "yum"
+          ignore_errors: true
+          changed_when: false
+
+        - name: Refresh dnf metadata cache (RHEL ≥ 8)
+          ansible.builtin.dnf:
+            update_cache: true
+          when:
+            - ansible_distribution_major_version | int >= 8
+            - ansible_pkg_mgr == "dnf"
+          ignore_errors: true
+          changed_when: false
+
+        - name: Install nginx (RHEL)
+          ansible.builtin.package:
+            name: nginx
+            state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Install NGINX on Debian family
+      block:
+        - name: Refresh apt metadata cache
+          ansible.builtin.apt:
+            update_cache: true
+          ignore_errors: true
+          changed_when: false
+
+        - name: Install nginx (Debian/Ubuntu)
+          ansible.builtin.apt:
+            name: 
+              - nginx
+              - nginx-common
+            state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Configure nginx and manage via systemd
+      block:
+        - name: Check if index.html exists
+          ansible.builtin.stat:
+            path: /var/www/html/index.html
+          register: index_html
+          changed_when: false
+
+        - name: Compute timestamp for backup filename
+          ansible.builtin.set_fact:
+            index_backup_suffix: "{{ ansible_date_time.date }}-{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}{{ ansible_date_time.second }}"
+
+        - name: Backup existing index.html
+          ansible.builtin.command: >
+            mv /var/www/html/index.html
+               /var/www/html/index.html.bak.{{ index_backup_suffix }}
+          when: index_html.stat.exists | default(false)
+
+        - name: Deploy sample index.html
+          ansible.builtin.copy:
+            src: index.html
+            dest: /var/www/html/index.html
+            mode: '0644'
+
+        - name: Validate nginx configuration
+          ansible.builtin.command: nginx -t
+          register: nginx_t
+          changed_when: false
+          failed_when: nginx_t.rc != 0
+
+        - name: Enable nginx service
+          ansible.builtin.service:
+            name: nginx
+            enabled: true
+
+        - name: Start or restart nginx using systemd
+          ansible.builtin.service:
+            name: nginx
+            state: restarted
+
+        - name: Wait for port 80 to be open
+          ansible.builtin.wait_for:
+            host: 127.0.0.1
+            port: 80
+            delay: 1
+            timeout: 30
+
+        - name: Verify nginx HTTP response
+          ansible.builtin.uri:
+            url: http://127.0.0.1
+            method: HEAD
+            status_code: 200
+          register: nginx_http
+          retries: 5
+          delay: 3
+          until: nginx_http.status == 200
+
+        - name: Show nginx HTTP response
+          ansible.builtin.debug:
+            msg:
+              - "===== NGINX HTTP RESPONSE ====="
+              - "Host: {{ inventory_hostname }}"
+              - "HTTP Status: {{ nginx_http.status }}"
+
+      when: ansible_os_family in ["RedHat", "Debian"]
