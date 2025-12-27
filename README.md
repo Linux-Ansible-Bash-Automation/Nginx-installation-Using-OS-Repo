@@ -198,7 +198,6 @@ HTTP Status: 200
 
 Automation | Linux | Ansible | Infrastructure Engineering
 
-```
 
 
 
